@@ -26,6 +26,8 @@ class AWSEMROperator(BaseOperator):
         super(AWSEMROperator, self).__init__(*args, **kwargs)
         self.conn_id = conn_id
         self.time_zone = time_zone
+        self.region = os.environ.get('AWS_DEFAULT_REGION')
+        self.s3_bucket = os.environ.get('AWS_S3_BUCKET')
 
     def execute(self, context):
         """
@@ -44,9 +46,9 @@ class AWSEMROperator(BaseOperator):
             "slave_node_instance_type": "m4.2xlarge",
             "num_slave_nodes": 2,
             "ec2_key_name": "udacity-emr-key",
-            "region": "us-west-2",
+            "region": self.region,
             "bootstrap": {"name": "bootstrap_emr",
-                          "path":  "s3://udacity-s3-emr/bootstrap_emr.sh"}
+                          "path":  f"s3://{self.s3_bucket}/scripts/bootstrap_emr.sh"}
         }
         client = boto3.client("emr",
                               region_name=config["region"],
@@ -82,7 +84,7 @@ class AWSEMROperator(BaseOperator):
                     }
                 ],
                 "Ec2KeyName": config["ec2_key_name"],
-                "KeepJobFlowAliveWhenNoSteps": True,
+                "KeepJobFlowAliveWhenNoSteps": False,
                 "TerminationProtected": False,
             },
             VisibleToAllUsers=True,

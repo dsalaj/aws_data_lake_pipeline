@@ -11,8 +11,6 @@ sudo yum install -y git
 sudo yum install -y blas lapack
 
 aws s3 cp s3://udacity-s3-emr/scripts $HOME/scripts --recursive
-echo $HOME
-ls $HOME/scripts
 
 # Set spark home (so that findspark finds spark)
 echo '

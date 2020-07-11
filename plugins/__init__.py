@@ -15,6 +15,7 @@ class UdacityPlugin(AirflowPlugin):
         operators.DataQualityOperator,
         operators.MyCustomOperator,
         operators.AWSEMROperator,
+        operators.AWSS3UploadOperator,
     ]
     helpers = [
         helpers.SqlQueries

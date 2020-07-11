@@ -37,8 +37,8 @@ services:
             # - REDIS_PASSWORD=redispass
         volumes:
             - ./dags:/usr/local/airflow/dags
-            # Uncomment to include custom plugins
             - ./plugins:/usr/local/airflow/plugins
+            - ./scripts:/usr/local/airflow/scripts
         ports:
             - "8080:8080"
         command: webserver
@@ -67,12 +67,13 @@ services:
     scheduler:
         image: puckel/docker-airflow:latest
         restart: always
+        env_file: ./aws.env
         depends_on:
             - webserver
         volumes:
             - ./dags:/usr/local/airflow/dags
-            # Uncomment to include custom plugins
             - ./plugins:/usr/local/airflow/plugins
+            - ./scripts:/usr/local/airflow/scripts
         environment:
             - LOAD_EX=y
             - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
@@ -86,12 +87,13 @@ services:
     worker:
         image: puckel/docker-airflow:latest
         restart: always
+        env_file: ./aws.env
         depends_on:
             - scheduler
         volumes:
             - ./dags:/usr/local/airflow/dags
-            # Uncomment to include custom plugins
             - ./plugins:/usr/local/airflow/plugins
+            - ./scripts:/usr/local/airflow/scripts
         environment:
             - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
             - EXECUTOR=Celery

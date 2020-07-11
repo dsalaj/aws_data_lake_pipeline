@@ -3,12 +3,12 @@ import pendulum
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.exceptions import AirflowException
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators import MyCustomOperator
 from airflow.operators import AWSEMROperator
-# from airflow.operators.my_custom_operator import MyCustomOperator
-# from airflow.operators.aws_emr_etl import AWSEMROperator
+from airflow.operators import AWSS3UploadOperator
 
 # from airflow.providers.amazon.aws.operators.emr_create_job_flow import EmrCreateJobFlowOperator
 # from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
@@ -46,27 +46,14 @@ dag = DAG('news_dag',
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
-def print_context(ds, **kwargs):
-    print(ds)
-    return 'Whatever you return gets printed in the logs'
-
-
-test_py_op = PythonOperator(
-    task_id='python_print_task',
-    provide_context=True,
-    python_callable=print_context,
+scripts_path = "scripts"
+aws_s3_upload_scripts = AWSS3UploadOperator(
+    task_id="upload_scripts_to_S3",
     dag=dag,
+    file_names=[os.path.join(scripts_path, scriptname) for scriptname in os.listdir(scripts_path)],
+    conn_id=AWS_CONN_ID,
+    time_zone=local_tz,
 )
-
-start_operator >> test_py_op
-
-custom_plugin_op = MyCustomOperator(
-    task_id='custom_plugin_op',
-    provide_context=True,
-    dag=dag,
-)
-
-test_py_op >> custom_plugin_op
 
 aws_emr_etl_operator = AWSEMROperator(
     task_id="create_EMR_cluster_and_execute_ETL",
@@ -75,7 +62,8 @@ aws_emr_etl_operator = AWSEMROperator(
     time_zone=local_tz,
 )
 
-custom_plugin_op >> aws_emr_etl_operator
+start_operator >> aws_s3_upload_scripts
+aws_s3_upload_scripts >> aws_emr_etl_operator
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',
