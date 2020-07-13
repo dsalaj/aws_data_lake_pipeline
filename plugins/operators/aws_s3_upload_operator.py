@@ -9,7 +9,7 @@ from airflow.contrib.hooks.aws_hook import AwsHook
 
 class AWSS3UploadOperator(BaseOperator):
     """
-        A custom airflow operator that files to S3 bucket by using boto3 library with
+        A custom airflow operator that uploads files to S3 bucket by using boto3 library with
         given configs from Airflow Variables.
     """
 
