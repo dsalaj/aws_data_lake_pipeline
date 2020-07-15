@@ -1,4 +1,3 @@
-import configparser
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import year, month, dayofmonth, hour, weekofyear, to_timestamp, monotonically_increasing_id
@@ -13,10 +12,14 @@ def create_spark_session():
     return spark
 
 
+LOCAL = os.getenv('RUN_LOCAL', False)
+
 spark = create_spark_session()
 s3_path = 's3a://udacity-s3-emr/'
+if LOCAL:
+    s3_path = '.'
 
-file_path = s3_path + 'all-the-news-2-1_colsfiltered.csv'
+file_path = os.path.join(s3_path, 'all-the-news-2-1_colsfiltered.csv')
 news_schema = StructType([
     StructField('year', IntegerType()),
     StructField('month', IntegerType()),
@@ -32,7 +35,7 @@ df = df.na.drop(subset=["year", "month", "day", "title"])
 
 news_2016 = df[df.year==2016]
 
-file_path = s3_path + 'RS_filtered.csv'
+file_path = os.path.join(s3_path, 'RS_filtered.csv')
 reddit_schema = StructType([
     StructField('_c0', StringType()),
     StructField('num_comments', IntegerType()),
