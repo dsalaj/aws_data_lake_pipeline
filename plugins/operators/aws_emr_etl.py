@@ -113,11 +113,19 @@ class AWSEMROperator(BaseOperator):
             ],
             Steps=[
                 {
-                    'Name': 'Run Spark ETL',
+                    'Name': 'Merge and clean data sources',
                     'ActionOnFailure': 'TERMINATE_CLUSTER',
                     'HadoopJarStep': {
                         'Jar': 'command-runner.jar',
                         'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
+                    }
+                },
+                {
+                    'Name': 'Named Entity Recognition of titles',
+                    'ActionOnFailure': 'TERMINATE_CLUSTER',
+                    'HadoopJarStep': {
+                        'Jar': 'command-runner.jar',
+                        'Args': ['spark-submit', '/home/hadoop/scripts/find_trends.py']
                     }
                 }
             ],
