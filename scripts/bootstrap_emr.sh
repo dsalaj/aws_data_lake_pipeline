@@ -6,6 +6,9 @@ sudo yum install -y gcc gcc-c++ tar bzip2
 sudo yum install -y python36 python36-devel python36-pip python36-setuptools python36-virtualenv
 sudo ln -s /usr/bin/pip-3.6 /usr/sbin/pip3
 
+sudo pip3 install spacy
+sudo python3 -m spacy download en_core_web_sm
+
 sudo yum install -y tmux
 sudo yum install -y git
 sudo yum install -y blas lapack

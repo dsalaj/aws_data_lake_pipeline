@@ -66,6 +66,7 @@ class AWSEMROperator(BaseOperator):
                 {"Name": "Hive"},
                 {"Name": "Livy"}
             ],
+            # LogUri=f"s3://{self.s3_bucket}/emr-logs/",  # Debugging logs
             Instances={
                 "InstanceGroups": [
                     {
