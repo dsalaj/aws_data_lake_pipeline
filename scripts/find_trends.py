@@ -1,6 +1,6 @@
 import os
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import to_date, concat_ws, trim, asc, udf, explode
+from pyspark.sql.functions import to_date, concat_ws, trim, asc, udf, explode, col
 from pyspark.sql.types import StructType, StructField, ArrayType, StringType
 import spacy
 
@@ -26,7 +26,7 @@ file_path = os.path.join(s3_path, 'titles.parquet')
 
 df_titles = spark.read.parquet(file_path)
 df_titles = df_titles.withColumn("date", to_date(concat_ws("-", "year", "month", "day")))
-df_titles = df_titles.withColumn("title", trim("title"))
+df_titles = df_titles.withColumn("title", trim(col("title")))
 #df_titles = df_titles.select(["title", "date"])
 if LOCAL:
     df_titles.printSchema()
@@ -67,4 +67,5 @@ out_path = os.path.join(s3_path, 'fact_ner.parquet')
 df_ner.write \
     .partitionBy(["year", "month", "day"]) \
     .format("parquet") \
+    .mode("overwrite") \
     .save(out_path)
