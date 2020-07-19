@@ -53,7 +53,10 @@ udf_title_to_named_entity_list = udf(
 )
 
 if LOCAL:
-    df_titles = df_titles.limit(200)
+    df_titles = df_titles.limit(200)  # limit the data amount for local debugging
+else:
+    df_titles = df_titles.limit(2000)  # limit the data amount for controlling AWS costs
+
 df_ner = df_titles.withColumn("ner", udf_title_to_named_entity_list("title"))
 df_ner = df_ner.withColumn("ner", explode("ner"))
 # List of all entity labels: https://spacy.io/api/annotation#named-entities
