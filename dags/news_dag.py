@@ -9,6 +9,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators import MyCustomOperator
 from airflow.operators import AWSEMROperator
 from airflow.operators import AWSS3UploadOperator
+from airflow.operators import AWSRedshiftOperator
 
 # from airflow.providers.amazon.aws.operators.emr_create_job_flow import EmrCreateJobFlowOperator
 # from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
@@ -26,7 +27,7 @@ default_args = {
     'owner': 'dsalaj',
     'start_date': datetime(2020, 7, 10, 0, 0, 0, tzinfo=local_tz),
     'depends_on_past': False,
-    'retries': 1,
+    'retries': 0,  # FIXME: change to 1 later
     'retry_delay': timedelta(minutes=5),
     'email_on_retry': False,
     'email_on_failure': False,
@@ -36,6 +37,7 @@ default_args = {
 
 DAG_NAME = os.path.basename(__file__).replace(".pyc", "").replace(".py", "")
 AWS_CONN_ID = "aws_credentials"
+AWS_REDSHIFT_CONN_ID = "aws_redshift_db"
 
 dag = DAG('news_dag',
           default_args=default_args,
@@ -55,15 +57,22 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
     time_zone=local_tz,
 )
 
-aws_emr_etl_operator = AWSEMROperator(
-    task_id="create_EMR_cluster_and_execute_ETL",
+# aws_emr_etl_operator = AWSEMROperator(
+#     task_id="create_EMR_cluster_and_execute_ETL",
+#     dag=dag,
+#     conn_id=AWS_CONN_ID,
+#     time_zone=local_tz,
+# )
+
+create_redshift_cluster = AWSRedshiftOperator(
+    task_id="create_redshift_cluster",
     dag=dag,
     conn_id=AWS_CONN_ID,
-    time_zone=local_tz,
+    time_zone=local_tz
 )
 
 start_operator >> aws_s3_upload_scripts
-aws_s3_upload_scripts >> aws_emr_etl_operator
+aws_s3_upload_scripts >> create_redshift_cluster
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',

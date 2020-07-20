@@ -114,7 +114,7 @@ case "$1" in
     echo "Create connections & variables..."
     exec airflow connections -a --conn_id aws_credentials --conn_login $AWS_ACCESS_KEY_ID --conn_password $AWS_SECRET_ACCESS_KEY --conn_type aws &
     # exec airflow connections -a --conn_id aws_emr_ssh --conn_login $AWS_EMR_SSH_USER --conn_password $AWS_EMR_SSH_PW --conn_type ssh --conn_extra '{"key_file": "/opt/'$AWS_SSH_KEY_FILE'"}' &
-    # exec airflow connections -a --conn_id aws_redshift_db --conn_login $AWS_REDSHIFT_USER --conn_password $AWS_REDSHIFT_PW --conn_type postgres --conn_port 5439 --conn_schema $AWS_REDSHIFT_SCHEMA &
+    exec airflow connections -a --conn_id aws_redshift_db --conn_login $AWS_REDSHIFT_USER --conn_password $AWS_REDSHIFT_PW --conn_type postgres --conn_port 5439 --conn_schema $AWS_REDSHIFT_SCHEMA &
     # exec airflow variables -i /opt/airflow/airflow_variables.json
 
     if [ "$AIRFLOW__CORE__EXECUTOR" = "LocalExecutor" ] || [ "$AIRFLOW__CORE__EXECUTOR" = "SequentialExecutor" ]; then
