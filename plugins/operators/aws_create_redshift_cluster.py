@@ -18,12 +18,14 @@ class AWSRedshiftOperator(BaseOperator):
     @apply_defaults
     def __init__(self,
                  conn_id,
+                 cluster_identifier,
                  time_zone=None,
                  *args,
                  **kwargs):
         super(AWSRedshiftOperator, self).__init__(*args, **kwargs)
         self.conn_id = conn_id
         self.time_zone = time_zone
+        self.cluster_identifier = cluster_identifier
 
     def execute(self, context):
         self.log.info("Initialize AWS connection ...")
@@ -31,7 +33,6 @@ class AWSRedshiftOperator(BaseOperator):
         credentials = aws_hook.get_credentials()
 
         config = {
-            "cluster_identifier": "news-nlp",
             "cluster_type": "multi-node",
             "node_type": "dc2.large",
             "num_nodes": 2,
@@ -50,8 +51,7 @@ class AWSRedshiftOperator(BaseOperator):
         # create emr-cluster
         self.log.info(f"Creating Redshift-Cluster ...")
         response = client.create_cluster(
-            ClusterIdentifier=f"{config['cluster_identifier']}-airflow-"
-                              f"{datetime.now(self.time_zone).strftime('%Y-%m-%d-%H-%M-%S')}",
+            ClusterIdentifier=self.cluster_identifier,
             ClusterType=config["cluster_type"],
             NodeType=config["node_type"],
             NumberOfNodes=config["num_nodes"],
@@ -62,7 +62,6 @@ class AWSRedshiftOperator(BaseOperator):
 
         if not response['ResponseMetadata']['HTTPStatusCode'] == 200:
             raise AirflowException(f"Redshift-Cluster creation failed: {response}")
-
         else:
             self.log.info(f"Cluster {response['Cluster']['ClusterIdentifier']} created with params: {response}")
             return response["Cluster"]["ClusterIdentifier"]

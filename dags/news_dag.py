@@ -11,6 +11,8 @@ from airflow.operators import AWSEMROperator
 from airflow.operators import AWSS3UploadOperator
 from airflow.operators import AWSRedshiftOperator
 
+from airflow.contrib.sensors.aws_redshift_cluster_sensor import AwsRedshiftClusterSensor
+
 # from airflow.providers.amazon.aws.operators.emr_create_job_flow import EmrCreateJobFlowOperator
 # from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
 
@@ -64,15 +66,26 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
 #     time_zone=local_tz,
 # )
 
+cluster_identifier = f"news-nlp-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
 create_redshift_cluster = AWSRedshiftOperator(
     task_id="create_redshift_cluster",
     dag=dag,
     conn_id=AWS_CONN_ID,
-    time_zone=local_tz
+    time_zone=local_tz,
+    cluster_identifier=cluster_identifier,
+)
+
+redshift_ready_sensor = AwsRedshiftClusterSensor(
+    task_id="sense_redshift_cluster",
+    dag=dag,
+    cluster_identifier=cluster_identifier,
+    target_status='available',
+    aws_conn_id=AWS_CONN_ID,
 )
 
 start_operator >> aws_s3_upload_scripts
 aws_s3_upload_scripts >> create_redshift_cluster
+create_redshift_cluster >> redshift_ready_sensor
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',
