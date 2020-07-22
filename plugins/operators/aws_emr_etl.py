@@ -11,8 +11,7 @@ from airflow.contrib.hooks.aws_hook import AwsHook
 
 class AWSEMROperator(BaseOperator):
     """
-        A custom airflow operator that creates EMR -Clusters by using boto3 library with
-        given configs from Airflow Variables.
+        Creates an EMR-Cluster with ETL steps
     """
 
     ui_color = "#9CCBA2"
@@ -20,6 +19,7 @@ class AWSEMROperator(BaseOperator):
     @apply_defaults
     def __init__(self,
                  conn_id,
+                 cluster_identifier,
                  time_zone=None,
                  *args,
                  **kwargs):
@@ -28,6 +28,7 @@ class AWSEMROperator(BaseOperator):
         self.time_zone = time_zone
         self.region = os.environ.get('AWS_DEFAULT_REGION')
         self.s3_bucket = os.environ.get('AWS_S3_BUCKET')
+        self.cluster_identifier = cluster_identifier
 
     def execute(self, context):
         """
@@ -40,7 +41,6 @@ class AWSEMROperator(BaseOperator):
         # get config variable based on cluster-type
         # config = Variable.get("aws_emr_cluster_config", default_var={}, deserialize_json=True)
         config = {
-            "cluster_name": "udacity-cap-airflow-EMR-op",
             "release_label": "emr-5.29.0",
             "master_instance_type": "m4.xlarge",
             "slave_node_instance_type": "m4.2xlarge",
@@ -58,7 +58,7 @@ class AWSEMROperator(BaseOperator):
         # create emr-cluster
         self.log.info(f"Creating EMR-Cluster ...")
         response = client.run_job_flow(
-            Name=f"{config['cluster_name']}-airflow-{datetime.now(self.time_zone).strftime('%Y-%m-%d-%H-%M-%S')}",
+            Name=self.cluster_identifier,
             ReleaseLabel=config["release_label"],
             Applications=[
                 {"Name": "Hadoop"},
@@ -66,7 +66,7 @@ class AWSEMROperator(BaseOperator):
                 {"Name": "Hive"},
                 {"Name": "Livy"}
             ],
-            # LogUri=f"s3://{self.s3_bucket}/emr-logs/",  # Debugging logs
+            LogUri=f"s3://{self.s3_bucket}/emr-logs/",  # Debugging logs
             Instances={
                 "InstanceGroups": [
                     {
@@ -113,14 +113,14 @@ class AWSEMROperator(BaseOperator):
                 },
             ],
             Steps=[
-                {
-                    'Name': 'Merge and clean data sources',
-                    'ActionOnFailure': 'TERMINATE_CLUSTER',
-                    'HadoopJarStep': {
-                        'Jar': 'command-runner.jar',
-                        'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
-                    }
-                },
+                # {
+                #     'Name': 'Merge and clean data sources',
+                #     'ActionOnFailure': 'TERMINATE_CLUSTER',
+                #     'HadoopJarStep': {
+                #         'Jar': 'command-runner.jar',
+                #         'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
+                #     }
+                # },
                 {
                     'Name': 'Named Entity Recognition of titles',
                     'ActionOnFailure': 'TERMINATE_CLUSTER',

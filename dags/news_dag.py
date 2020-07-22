@@ -12,9 +12,10 @@ from airflow.operators import AWSS3UploadOperator
 from airflow.operators import AWSRedshiftOperator
 
 from airflow.contrib.sensors.aws_redshift_cluster_sensor import AwsRedshiftClusterSensor
+from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
 
 # from airflow.providers.amazon.aws.operators.emr_create_job_flow import EmrCreateJobFlowOperator
-# from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
+
 
 # from airflow.operators import (StageToRedshiftOperator, LoadFactOperator,
 #                                 LoadDimensionOperator, DataQualityOperator)
@@ -59,33 +60,45 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
     time_zone=local_tz,
 )
 
-# aws_emr_etl_operator = AWSEMROperator(
-#     task_id="create_EMR_cluster_and_execute_ETL",
-#     dag=dag,
-#     conn_id=AWS_CONN_ID,
-#     time_zone=local_tz,
-# )
-
-cluster_identifier = f"news-nlp-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
-create_redshift_cluster = AWSRedshiftOperator(
-    task_id="create_redshift_cluster",
+emr_cluster_id = f"news-nlp-emr-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
+aws_emr_etl_operator = AWSEMROperator(
+    task_id="create_EMR_cluster_and_execute_ETL",
     dag=dag,
     conn_id=AWS_CONN_ID,
     time_zone=local_tz,
-    cluster_identifier=cluster_identifier,
+    cluster_identifier=emr_cluster_id,
 )
 
-redshift_ready_sensor = AwsRedshiftClusterSensor(
-    task_id="sense_redshift_cluster",
+emr_etl_sensor = EmrJobFlowSensor(
+    task_id="sense_emr_etl",
     dag=dag,
-    cluster_identifier=cluster_identifier,
-    target_status='available',
+    job_flow_id="{{ task_instance.xcom_pull('create_EMR_cluster_and_execute_ETL', key='return_value') }}",
     aws_conn_id=AWS_CONN_ID,
 )
 
+# redshift_cluster_id = f"news-nlp-redshift-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
+# create_redshift_cluster = AWSRedshiftOperator(
+#     task_id="create_redshift_cluster",
+#     dag=dag,
+#     conn_id=AWS_CONN_ID,
+#     time_zone=local_tz,
+#     cluster_identifier=redshift_cluster_id,
+# )
+#
+# redshift_ready_sensor = AwsRedshiftClusterSensor(
+#     task_id="sense_redshift_cluster",
+#     dag=dag,
+#     cluster_identifier=cluster_identifier,
+#     target_status='available',
+#     aws_conn_id=AWS_CONN_ID,
+# )
+
+
 start_operator >> aws_s3_upload_scripts
-aws_s3_upload_scripts >> create_redshift_cluster
-create_redshift_cluster >> redshift_ready_sensor
+aws_s3_upload_scripts >> aws_emr_etl_operator
+aws_emr_etl_operator >> emr_etl_sensor
+#aws_s3_upload_scripts >> create_redshift_cluster
+#create_redshift_cluster >> redshift_ready_sensor
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',
