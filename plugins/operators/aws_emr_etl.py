@@ -121,12 +121,20 @@ class AWSEMROperator(BaseOperator):
                 #         'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
                 #     }
                 # },
+                # {
+                #     'Name': 'Named Entity Recognition of titles',
+                #     'ActionOnFailure': 'TERMINATE_CLUSTER',
+                #     'HadoopJarStep': {
+                #         'Jar': 'command-runner.jar',
+                #         'Args': ['spark-submit', '/home/hadoop/scripts/find_trends.py']
+                #     }
+                # },
                 {
                     'Name': 'Named Entity Recognition of titles',
                     'ActionOnFailure': 'TERMINATE_CLUSTER',
                     'HadoopJarStep': {
                         'Jar': 'command-runner.jar',
-                        'Args': ['spark-submit', '/home/hadoop/scripts/find_trends.py']
+                        'Args': ['spark-submit', '/home/hadoop/scripts/create_star.py']
                     }
                 }
             ],

@@ -84,11 +84,11 @@ emr_etl_sensor = EmrJobFlowSensor(
 #     time_zone=local_tz,
 #     cluster_identifier=redshift_cluster_id,
 # )
-#
+# # FIXME: replace redshift_cluster_id with xcom_pull call
 # redshift_ready_sensor = AwsRedshiftClusterSensor(
 #     task_id="sense_redshift_cluster",
 #     dag=dag,
-#     cluster_identifier=cluster_identifier,
+#     cluster_identifier=redshift_cluster_id,
 #     target_status='available',
 #     aws_conn_id=AWS_CONN_ID,
 # )
@@ -97,8 +97,8 @@ emr_etl_sensor = EmrJobFlowSensor(
 start_operator >> aws_s3_upload_scripts
 aws_s3_upload_scripts >> aws_emr_etl_operator
 aws_emr_etl_operator >> emr_etl_sensor
-#aws_s3_upload_scripts >> create_redshift_cluster
-#create_redshift_cluster >> redshift_ready_sensor
+# aws_s3_upload_scripts >> create_redshift_cluster
+# create_redshift_cluster >> redshift_ready_sensor
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',
