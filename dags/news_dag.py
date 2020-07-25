@@ -10,10 +10,11 @@ from airflow.operators import MyCustomOperator
 from airflow.operators import AWSEMROperator
 from airflow.operators import AWSS3UploadOperator
 from airflow.operators import AWSRedshiftOperator
+from airflow.operators import S3ToRedshiftTransfer
 
 from airflow.contrib.sensors.aws_redshift_cluster_sensor import AwsRedshiftClusterSensor
 from airflow.providers.amazon.aws.sensors.emr_job_flow import EmrJobFlowSensor
-from airflow.operators.s3_to_redshift_operator import S3ToRedshiftTransfer
+# from airflow.operators.s3_to_redshift_operator import S3ToRedshiftTransfer
 
 # from airflow.providers.amazon.aws.operators.emr_create_job_flow import EmrCreateJobFlowOperator
 
@@ -77,22 +78,22 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
 #     aws_conn_id=AWS_CONN_ID,
 # )
 
-# redshift_cluster_id = f"news-nlp-redshift-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
-# create_redshift_cluster = AWSRedshiftOperator(
-#     task_id="create_redshift_cluster",
-#     dag=dag,
-#     conn_id=AWS_CONN_ID,
-#     time_zone=local_tz,
-#     cluster_identifier=redshift_cluster_id,
-# )
-# # FIXME: replace redshift_cluster_id with xcom_pull call
-# redshift_ready_sensor = AwsRedshiftClusterSensor(
-#     task_id="sense_redshift_cluster",
-#     dag=dag,
-#     cluster_identifier=redshift_cluster_id,
-#     target_status='available',
-#     aws_conn_id=AWS_CONN_ID,
-# )
+redshift_cluster_id = f"news-nlp-redshift-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
+create_redshift_cluster = AWSRedshiftOperator(
+    task_id="create_redshift_cluster",
+    dag=dag,
+    conn_id=AWS_CONN_ID,
+    time_zone=local_tz,
+    cluster_identifier=redshift_cluster_id,
+)
+# FIXME: replace redshift_cluster_id with xcom_pull call
+redshift_ready_sensor = AwsRedshiftClusterSensor(
+    task_id="sense_redshift_cluster",
+    dag=dag,
+    cluster_identifier=redshift_cluster_id,
+    target_status='available',
+    aws_conn_id=AWS_CONN_ID,
+)
 
 
 upload_to_redshift = S3ToRedshiftTransfer(
@@ -111,10 +112,10 @@ start_operator >> aws_s3_upload_scripts
 # aws_s3_upload_scripts >> aws_emr_etl_operator
 # aws_emr_etl_operator >> emr_etl_sensor
 
-# aws_s3_upload_scripts >> create_redshift_cluster
-# create_redshift_cluster >> redshift_ready_sensor
+aws_s3_upload_scripts >> create_redshift_cluster
+create_redshift_cluster >> redshift_ready_sensor
 
-aws_s3_upload_scripts >> upload_to_redshift
+redshift_ready_sensor >> upload_to_redshift
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',

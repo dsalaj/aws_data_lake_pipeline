@@ -17,6 +17,7 @@ class UdacityPlugin(AirflowPlugin):
         operators.AWSEMROperator,
         operators.AWSS3UploadOperator,
         operators.AWSRedshiftOperator,
+        operators.S3ToRedshiftTransfer,
     ]
     helpers = [
         helpers.SqlQueries
