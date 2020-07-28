@@ -2,9 +2,9 @@ import os
 import json
 import boto3
 from botocore.exceptions import ClientError
-from datetime import datetime
 
-from airflow.exceptions import AirflowException
+from airflow import settings
+from airflow.models import Connection
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.contrib.hooks.aws_hook import AwsHook
@@ -20,12 +20,14 @@ class AWSRedshiftOperator(BaseOperator):
     @apply_defaults
     def __init__(self,
                  conn_id,
+                 redshift_conn_id,
                  cluster_identifier,
                  time_zone=None,
                  *args,
                  **kwargs):
         super(AWSRedshiftOperator, self).__init__(*args, **kwargs)
         self.conn_id = conn_id
+        self.redshift_conn_id = redshift_conn_id
         self.time_zone = time_zone
         self.cluster_identifier = cluster_identifier
 
@@ -76,7 +78,7 @@ class AWSRedshiftOperator(BaseOperator):
         self.log.info("Attaching Policy AmazonS3ReadOnlyAccess to IAM Role...")
 
         iam.attach_role_policy(RoleName=os.environ.get('AWS_IAM_ROLE_NAME'),
-                               PolicyArn="arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+                               PolicyArn="arn:aws:iam::aws:policy/AmazonS3FullAccess"
                                )['ResponseMetadata']['HTTPStatusCode']
 
         roleArn = iam.get_role(RoleName=os.environ.get('AWS_IAM_ROLE_NAME'))['Role']['Arn']
@@ -88,18 +90,35 @@ class AWSRedshiftOperator(BaseOperator):
         master_pw = os.environ["AWS_REDSHIFT_PW"]
         # create emr-cluster
         self.log.info(f"Creating Redshift-Cluster ...")
-        response = redshift.create_cluster(
-            ClusterIdentifier=self.cluster_identifier,
-            ClusterType=config["cluster_type"],
-            NodeType=config["node_type"],
-            NumberOfNodes=config["num_nodes"],
-            DBName=db_name,
-            MasterUsername=master_user,
-            MasterUserPassword=master_pw,
-            IamRoles=[roleArn],
-        )
+        try:
+            response = redshift.create_cluster(
+                ClusterIdentifier=self.cluster_identifier,
+                ClusterType=config["cluster_type"],
+                NodeType=config["node_type"],
+                NumberOfNodes=config["num_nodes"],
+                DBName=db_name,
+                MasterUsername=master_user,
+                MasterUserPassword=master_pw,
+                IamRoles=[roleArn],
+            )
+            self.log.info(response)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ClusterAlreadyExists':
+                self.log.info(e)
+            else:
+                raise e
 
+        self.log.info(f"Updating airflow redshift connection with host...")
         myClusterProps = redshift.describe_clusters(ClusterIdentifier=self.cluster_identifier)['Clusters'][0]
+        conn_host = myClusterProps["Endpoint"]["Address"]
+        self.log.info("host: " + conn_host)
+        session = settings.Session()
+        existing_connection = (session.query(Connection).filter(Connection.conn_id == self.redshift_conn_id).one())
+        new_connection = existing_connection
+        new_connection.host = conn_host
+        session.delete(existing_connection)
+        session.add(new_connection)
+        session.commit()
 
         self.log.info(f"Open an incoming TCP port to access the cluster ednpoint...")
         try:
@@ -113,11 +132,10 @@ class AWSRedshiftOperator(BaseOperator):
                 FromPort=int(5439),
                 ToPort=int(5439)
             )
-        except Exception as e:
-            print(e)
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidPermission.Duplicate':
+                self.log.info(e)
+            else:
+                raise e
 
-        if not response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            raise AirflowException(f"Redshift-Cluster creation failed: {response}")
-        else:
-            self.log.info(f"Cluster {response['Cluster']['ClusterIdentifier']} created with params: {response}")
-            return response["Cluster"]["ClusterIdentifier"]
+        return self.cluster_identifier, roleArn
