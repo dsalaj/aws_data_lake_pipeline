@@ -1,4 +1,5 @@
 import boto3
+import psycopg2
 import os
 
 from airflow.exceptions import AirflowException
@@ -46,21 +47,31 @@ class S3ToRedshiftTransfer(BaseOperator):
         redshift = PostgresHook(postgres_conn_id=self.redshift_conn_id)
 
         copy_options = '\n\t\t\t'.join(self.copy_options)
+        arn_role = context['task_instance'].xcom_pull('create_redshift_cluster', key='return_value')[1]
+
+        date_table_create = """
+            CREATE TABLE IF NOT EXISTS dim_date (
+                date DATE NOT NULL,
+                id VARCHAR PRIMARY KEY
+            )
+        """
 
         copy_query = """
-            COPY {schema}.{table}
+            COPY public.{table}
             FROM 's3://{s3_bucket}/{s3_key}'
-            ACCESS_KEY_ID={access_key}
-            SECRET_ACCESS_KEY={secret_key}
-            {copy_options};
-        """.format(schema=self.schema,
-                   table=self.table,
+            iam_role '{aws_iam_role}'
+            {copy_options}
+            REGION AS '{region}';
+        """.format(table=self.table,
                    s3_bucket=self.s3_bucket,
                    s3_key=self.s3_key,
                    access_key=credentials.access_key,
                    secret_key=credentials.secret_key,
-                   copy_options=copy_options)
+                   aws_iam_role=arn_role,
+                   copy_options=copy_options,
+                   region=self.region)
 
         self.log.info('Executing COPY command...')
+        redshift.run(date_table_create)
         redshift.run(copy_query)
         self.log.info("COPY command complete...")
