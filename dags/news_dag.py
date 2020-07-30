@@ -62,15 +62,15 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
     time_zone=local_tz,
 )
 
-# emr_cluster_id = f"news-nlp-emr-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
+
 # aws_emr_etl_operator = AWSEMROperator(
 #     task_id="create_EMR_cluster_and_execute_ETL",
 #     dag=dag,
 #     conn_id=AWS_CONN_ID,
+#     redshift_conn_id=AWS_REDSHIFT_CONN_ID,
 #     time_zone=local_tz,
-#     cluster_identifier=emr_cluster_id,
+#     cluster_identifier=f"news-nlp-emr-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}",
 # )
-#
 # emr_etl_sensor = EmrJobFlowSensor(
 #     task_id="sense_emr_etl",
 #     dag=dag,
@@ -78,19 +78,20 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
 #     aws_conn_id=AWS_CONN_ID,
 # )
 
-redshift_cluster_id = f"news-nlp-redshift-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}"
+
 create_redshift_cluster = AWSRedshiftOperator(
     task_id="create_redshift_cluster",
     dag=dag,
     conn_id=AWS_CONN_ID,
+    redshift_conn_id=AWS_REDSHIFT_CONN_ID,
     time_zone=local_tz,
-    cluster_identifier=redshift_cluster_id,
+    # cluster_identifier=f"news-nlp-redshift-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}",
+    cluster_identifier="news-nlp-redshift-2020-08-01-15-40",
 )
-# FIXME: replace redshift_cluster_id with xcom_pull call
 redshift_ready_sensor = AwsRedshiftClusterSensor(
     task_id="sense_redshift_cluster",
     dag=dag,
-    cluster_identifier=redshift_cluster_id,
+    cluster_identifier="{{ task_instance.xcom_pull('create_redshift_cluster', key='return_value')[0] }}",
     target_status='available',
     aws_conn_id=AWS_CONN_ID,
 )
@@ -102,10 +103,10 @@ upload_to_redshift = S3ToRedshiftTransfer(
     redshift_conn_id=AWS_REDSHIFT_CONN_ID,
     aws_conn_id=AWS_CONN_ID,
     schema=os.environ.get('AWS_REDSHIFT_SCHEMA'),
-    table='date',
+    table='dim_date',
     s3_bucket=os.environ.get('AWS_S3_BUCKET'),
     s3_key=f'dim_date.csv',
-    copy_options=['CSV'] #, 'IGNOREHEADER 2']
+    copy_options=['CSV', 'IGNOREHEADER 1']
 )
 
 start_operator >> aws_s3_upload_scripts
