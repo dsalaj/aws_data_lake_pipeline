@@ -1,8 +1,5 @@
-import boto3
-import psycopg2
 import os
 
-from airflow.exceptions import AirflowException
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.decorators import apply_defaults
 from airflow.contrib.hooks.aws_hook import AwsHook
@@ -15,6 +12,36 @@ class S3ToRedshiftTransfer(BaseOperator):
     """
 
     ui_color = "#FF5566"
+
+    query_dict = {
+        'dim_date': """
+            CREATE TABLE IF NOT EXISTS dim_date (
+              date DATE NOT NULL,
+              id VARCHAR PRIMARY KEY
+            )
+        """,
+        'dim_title': """
+        CREATE TABLE IF NOT EXISTS dim_title (
+            title VARCHAR NOT NULL,
+            id VARCHAR PRIMARY KEY
+        )
+        """,
+        'dim_ner': """
+        CREATE TABLE IF NOT EXISTS dim_ner (
+            id VARCHAR PRIMARY KEY,
+            text VARCHAR NOT NULL,
+            label VARCHAR NOT NULL
+        )
+        """,
+        'fact_news': """
+        CREATE TABLE IF NOT EXISTS fact_news (
+            title_id VARCHAR NOT NULL,
+            date_id VARCHAR NOT NULL,
+            ner_id VARCHAR NOT NULL,
+            PRIMARY KEY(title_id, date_id, ner_id)
+        )
+        """,
+    }
 
     @apply_defaults
     def __init__(self,
@@ -30,6 +57,7 @@ class S3ToRedshiftTransfer(BaseOperator):
                  **kwargs):
         super(S3ToRedshiftTransfer, self).__init__(*args, **kwargs)
         self.schema = schema
+        assert table in self.query_dict.keys(), f"Unknown table, defined: {list(self.query_dict.keys())}"
         self.table = table
         self.s3_bucket = s3_bucket
         self.s3_key = s3_key
@@ -49,13 +77,6 @@ class S3ToRedshiftTransfer(BaseOperator):
         copy_options = '\n\t\t\t'.join(self.copy_options)
         arn_role = context['task_instance'].xcom_pull('create_redshift_cluster', key='return_value')[1]
 
-        date_table_create = """
-            CREATE TABLE IF NOT EXISTS dim_date (
-                date DATE NOT NULL,
-                id VARCHAR PRIMARY KEY
-            )
-        """
-
         copy_query = """
             COPY public.{table}
             FROM 's3://{s3_bucket}/{s3_key}'
@@ -72,6 +93,6 @@ class S3ToRedshiftTransfer(BaseOperator):
                    region=self.region)
 
         self.log.info('Executing COPY command...')
-        redshift.run(date_table_create)
+        redshift.run(self.query_dict[self.table])
         redshift.run(copy_query)
         self.log.info("COPY command complete...")

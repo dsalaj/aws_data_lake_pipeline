@@ -63,20 +63,20 @@ aws_s3_upload_scripts = AWSS3UploadOperator(
 )
 
 
-# aws_emr_etl_operator = AWSEMROperator(
-#     task_id="create_EMR_cluster_and_execute_ETL",
-#     dag=dag,
-#     conn_id=AWS_CONN_ID,
-#     redshift_conn_id=AWS_REDSHIFT_CONN_ID,
-#     time_zone=local_tz,
-#     cluster_identifier=f"news-nlp-emr-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}",
-# )
-# emr_etl_sensor = EmrJobFlowSensor(
-#     task_id="sense_emr_etl",
-#     dag=dag,
-#     job_flow_id="{{ task_instance.xcom_pull('create_EMR_cluster_and_execute_ETL', key='return_value') }}",
-#     aws_conn_id=AWS_CONN_ID,
-# )
+aws_emr_etl_operator = AWSEMROperator(
+    task_id="create_EMR_cluster_and_execute_ETL",
+    dag=dag,
+    conn_id=AWS_CONN_ID,
+    redshift_conn_id=AWS_REDSHIFT_CONN_ID,
+    time_zone=local_tz,
+    cluster_identifier=f"news-nlp-emr-{datetime.now(local_tz).strftime('%Y-%m-%d-%H-%M')}",
+)
+emr_etl_sensor = EmrJobFlowSensor(
+    task_id="sense_emr_etl",
+    dag=dag,
+    job_flow_id="{{ task_instance.xcom_pull('create_EMR_cluster_and_execute_ETL', key='return_value') }}",
+    aws_conn_id=AWS_CONN_ID,
+)
 
 
 create_redshift_cluster = AWSRedshiftOperator(
@@ -96,27 +96,30 @@ redshift_ready_sensor = AwsRedshiftClusterSensor(
     aws_conn_id=AWS_CONN_ID,
 )
 
-
-upload_to_redshift = S3ToRedshiftTransfer(
-    task_id="upload_date_to_redshift",
-    dag=dag,
-    redshift_conn_id=AWS_REDSHIFT_CONN_ID,
-    aws_conn_id=AWS_CONN_ID,
-    schema=os.environ.get('AWS_REDSHIFT_SCHEMA'),
-    table='dim_date',
-    s3_bucket=os.environ.get('AWS_S3_BUCKET'),
-    s3_key=f'dim_date.csv',
-    copy_options=['CSV', 'IGNOREHEADER 1']
-)
+tables = ['dim_date', 'dim_title', 'dim_ner', 'fact_news']
+table_load_ops = [
+    S3ToRedshiftTransfer(
+        task_id=f"upload_{table}_to_redshift",
+        dag=dag,
+        redshift_conn_id=AWS_REDSHIFT_CONN_ID,
+        aws_conn_id=AWS_CONN_ID,
+        schema=os.environ.get('AWS_REDSHIFT_SCHEMA'),
+        table=table,
+        s3_bucket=os.environ.get('AWS_S3_BUCKET'),
+        s3_key=f'{table}.csv',
+        copy_options=['CSV', 'IGNOREHEADER 1']
+    ) for table in tables
+]
 
 start_operator >> aws_s3_upload_scripts
-# aws_s3_upload_scripts >> aws_emr_etl_operator
-# aws_emr_etl_operator >> emr_etl_sensor
+aws_s3_upload_scripts >> aws_emr_etl_operator
+aws_emr_etl_operator >> emr_etl_sensor
 
-aws_s3_upload_scripts >> create_redshift_cluster
+emr_etl_sensor >> create_redshift_cluster
 create_redshift_cluster >> redshift_ready_sensor
 
-redshift_ready_sensor >> upload_to_redshift
+for table_load_op in table_load_ops:
+    redshift_ready_sensor >> table_load_op
 
 # stage_events_to_redshift = StageToRedshiftOperator(
 #     task_id='Stage_events',
