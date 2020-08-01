@@ -107,7 +107,7 @@ table_load_ops = [
         table=table,
         s3_bucket=os.environ.get('AWS_S3_BUCKET'),
         s3_key=f'{table}.csv',
-        copy_options=['CSV', 'IGNOREHEADER 1']
+        copy_options=["CSV QUOTE '`'", 'IGNOREHEADER 1']
     ) for table in tables
 ]
 

@@ -1,8 +1,6 @@
 import os
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import monotonically_increasing_id, to_date, concat_ws, trim, asc, udf, explode, col
-from pyspark.sql.types import StructType, StructField, ArrayType, StringType, BooleanType
-import spacy
+from pyspark.sql.functions import monotonically_increasing_id, regexp_replace, col
 
 
 def create_spark_session():
@@ -31,11 +29,17 @@ def extract_dimension_df_from_column(df, column):
     return df.select(column).distinct().withColumn('id', monotonically_increasing_id())
 
 
+# Remove Special characters
+df_facts = df_facts.withColumn('title', regexp_replace(col('title'), "/[^a-zA-Z0-9 -_]+/", ""))
+
+
 df_titles = extract_dimension_df_from_column(df_facts, 'title')
 df_date = extract_dimension_df_from_column(df_facts, 'date')
 df_ner = extract_dimension_df_from_column(df_facts, 'ner')
-# Split struct column "ner" to simple string columns
+# Split struct column "ner" to simple string columns: text, label
 df_ner = df_ner.select('id', 'ner', col('ner.*'))
+# Remove Special characters
+df_ner = df_ner.withColumn('text', regexp_replace(col('text'), "[^a-zA-Z0-9 -_]+", ""))
 
 dim_dfs = {
     'title': df_titles,
@@ -48,8 +52,10 @@ for col_name, dim_df in dim_dfs.items():
 
 # Keep only foreign keys to dimension tables
 df_facts = df_facts.select([f'{col_name}_id' for col_name in dim_dfs.keys()])
+
 # Drop redundant struct field as it is not compatible with CSV
 dim_dfs['ner'] = dim_dfs['ner'].drop('ner')
+
 
 if LOCAL:
     for dim_df in dim_dfs.values():
@@ -63,11 +69,13 @@ for col_name, dim_df in dim_dfs.items():
     out_path = os.path.join(s3_path, f'dim_{col_name}.csv')
     dim_df.repartition(1).write \
         .option("header", "true") \
+        .option("quote", "`") \
         .mode("overwrite") \
         .csv(out_path)
 
 out_path = os.path.join(s3_path, f'fact_news.csv')
 df_facts.repartition(1).write \
     .option("header", "true") \
+    .option("quote", "`") \
     .mode("overwrite") \
     .csv(out_path)
