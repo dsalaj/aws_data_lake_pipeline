@@ -1,8 +1,6 @@
 import boto3
-from datetime import datetime
 import os
 
-from airflow.models import Variable
 from airflow.exceptions import AirflowException
 from airflow.models.baseoperator import BaseOperator
 from airflow.utils.decorators import apply_defaults
@@ -38,8 +36,6 @@ class AWSEMROperator(BaseOperator):
         aws_hook = AwsHook(self.conn_id)
         credentials = aws_hook.get_credentials()
         
-        # get config variable based on cluster-type
-        # config = Variable.get("aws_emr_cluster_config", default_var={}, deserialize_json=True)
         config = {
             "release_label": "emr-5.29.0",
             "master_instance_type": "m4.xlarge",
@@ -113,24 +109,24 @@ class AWSEMROperator(BaseOperator):
                 },
             ],
             Steps=[
-                # {
-                #     'Name': 'Merge and clean data sources',
-                #     'ActionOnFailure': 'TERMINATE_CLUSTER',
-                #     'HadoopJarStep': {
-                #         'Jar': 'command-runner.jar',
-                #         'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
-                #     }
-                # },
-                # {
-                #     'Name': 'Named Entity Recognition of titles',
-                #     'ActionOnFailure': 'TERMINATE_CLUSTER',
-                #     'HadoopJarStep': {
-                #         'Jar': 'command-runner.jar',
-                #         'Args': ['spark-submit', '/home/hadoop/scripts/find_trends.py']
-                #     }
-                # },
+                {
+                    'Name': 'Merge and clean data sources',
+                    'ActionOnFailure': 'TERMINATE_CLUSTER',
+                    'HadoopJarStep': {
+                        'Jar': 'command-runner.jar',
+                        'Args': ['spark-submit', '/home/hadoop/scripts/merge_data.py']
+                    }
+                },
                 {
                     'Name': 'Named Entity Recognition of titles',
+                    'ActionOnFailure': 'TERMINATE_CLUSTER',
+                    'HadoopJarStep': {
+                        'Jar': 'command-runner.jar',
+                        'Args': ['spark-submit', '/home/hadoop/scripts/find_trends.py']
+                    }
+                },
+                {
+                    'Name': 'Transform data to star schema',
                     'ActionOnFailure': 'TERMINATE_CLUSTER',
                     'HadoopJarStep': {
                         'Jar': 'command-runner.jar',
