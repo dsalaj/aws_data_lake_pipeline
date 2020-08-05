@@ -9,8 +9,9 @@ The target usecase is to provide a convenient way of detecting and analyzing tre
 ## Data Sources
 
 The data sources:
-    - Reddit submissions [link](http://files.pushshift.io/reddit/submissions/)
-    - All the news dataset [link](https://components.one/datasets/all-the-news-2-news-articles-dataset/)
+
+- Reddit submissions [link](http://files.pushshift.io/reddit/submissions/)
+- All the news dataset [link](https://components.one/datasets/all-the-news-2-news-articles-dataset/)
 
 The choice of datasets is arbitrary. The pipeline should be easily adaptable to any type of dataset by modifying the `scripts/merge_data.py`. The fields of interest are the titles (of news articles of reddit submissions, but the NLP will work on longer text content also) and the timestamps.
 
