@@ -27,7 +27,7 @@ file_path = os.path.join(s3_path, 'titles.parquet')
 df_titles = spark.read.parquet(file_path)
 df_titles = df_titles.withColumn("date", to_date(concat_ws("-", "year", "month", "day")))
 df_titles = df_titles.withColumn("title", trim(col("title")))
-#df_titles = df_titles.select(["title", "date"])
+
 if LOCAL:
     df_titles.printSchema()
     df_titles.show(n=10)

@@ -19,7 +19,7 @@ default_args = {
     'owner': 'dsalaj',
     'start_date': datetime(2020, 7, 10, 0, 0, 0, tzinfo=local_tz),
     'depends_on_past': False,
-    'retries': 0,  # FIXME: change to 1 later
+    'retries': 0,
     'retry_delay': timedelta(minutes=5),
     'email_on_retry': False,
     'email_on_failure': False,
