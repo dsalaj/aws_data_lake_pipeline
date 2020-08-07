@@ -73,7 +73,15 @@ The ETL steps are implemented using `pyspark` which provides a scalable way of p
 
 The NLP library is `spacy` as it excels at large-scale information extraction tasks and is popular in the industry.
 
+## Getting started
 
+First build the Airflow docker image:
+
+    sudo docker build --rm --build-arg AIRFLOW_DEPS="aws" --build-arg PYTHON_DEPS="boto3" -t puckel/docker-airflow .
+
+Next start the Airflow:
+
+    sudo docker-compose -f docker-compose-CeleryExecutor.yml up -d
 
 ## Scenario questions
 
